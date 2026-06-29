@@ -1,0 +1,21 @@
+# Credentials and Private Cache
+Tokens.txt
+.cache
+.cache-*
+StartOnBoot.txt
+train_wakeword/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# Local logs
+*.log
+
+# OS-specific files
+Thumbs.db
+Desktop.ini

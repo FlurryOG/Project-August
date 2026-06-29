@@ -1,0 +1,129 @@
+wake_word:
+  threshold: 0.1
+  chunk_ms: 80
+  models:
+  - path: models/hey_august.onnx
+    display_name: Hey August
+    phrase: hey august
+stt:
+  model_size: base
+  device: cpu
+  compute_type: int8
+  language: en
+  beam_size: 1
+llm:
+  provider: ollama
+  host: http://localhost:11434
+  model: llama3
+  system_prompt: "You are August, a helpful, witty, and efficient local voice assistant\
+    \ running entirely\non the user's own machine. You have no internet access \u2014\
+    \ all your knowledge is local.\nKeep your responses concise and natural for voice\
+    \ \u2014 avoid bullet points, markdown, or\nlong lists. Aim for 1-3 sentences\
+    \ unless the user asks for more detail.\nYou can also execute system commands\
+    \ when asked. If the user asks you to open a URL\nor run a script, confirm that\
+    \ you are doing it.\n"
+  max_history_turns: 10
+  openai_api_key: ""
+  gemini_api_key: ""
+recording:
+  sample_rate: 16000
+  silence_threshold_db: -48
+  silence_duration_s: 1.5
+  max_record_s: 30
+speaker:
+  rate: 185
+  voice_type: female
+  mode: edge
+  edge_voice: en-US-AriaNeural
+spotify:
+  client_id: ""
+  client_secret: ""
+  redirect_uri: "http://127.0.0.1:25566/callback"
+  enabled: true
+commands:
+  opera_path: C:\Users\%USERNAME%\AppData\Local\Programs\Opera\opera.exe
+  entries:
+  - name: Open YouTube
+    keywords:
+    - open youtube
+    - youtube
+    - go to youtube
+    type: url
+    target: https://www.youtube.com
+  - name: Open Gmail
+    keywords:
+    - open gmail
+    - gmail
+    - my email
+    - check email
+    type: url
+    target: https://mail.google.com
+  - name: Open GitHub
+    keywords:
+    - open github
+    - github
+    type: url
+    target: https://www.github.com
+  - name: Open Google
+    keywords:
+    - open google
+    - google search
+    type: url
+    target: https://www.google.com
+  - name: Open Opera
+    keywords:
+    - open opera
+    - launch opera
+    - opera browser
+    - opera
+    type: shell
+    target: start "" "%USERPROFILE%\AppData\Local\Programs\Opera\opera.exe"
+  - name: Barn Door Protocol
+    keywords:
+    - august initiate barn door protocol
+    - initiate barn door protocol
+    - activate barn door protocol
+    - barn door protocol
+    - barn door
+    - lock the computer
+    - lock my computer
+    - lock the pc
+    - lock my pc
+    - lock screen
+    type: script
+    target: scripts/barn_door_protocol.bat
+  - name: Stop Listening
+    keywords:
+    - goodbye august
+    - stop listening
+    - go to sleep
+    - sleep mode
+    type: builtin
+    action: stop
+  - name: Tell Time
+    keywords:
+    - what is the time
+    - whats the time
+    - what's the time
+    - what time is it
+    - tell me the time
+    - current time
+    type: builtin
+    action: time
+  - name: Tell Date
+    keywords:
+    - what is today
+    - whats today
+    - what's today
+    - what is the date
+    - whats the date
+    - what's the date
+    - what day is it
+    - today's date
+    - todays date
+    type: builtin
+    action: date
+ui:
+  show_timestamps: true
+  show_scores: false
+  use_color: true

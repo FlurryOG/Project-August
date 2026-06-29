@@ -1,0 +1,30 @@
+# August Voice Assistant — Dependencies
+# Install with: pip install -r requirements.txt
+#
+# NOTE: faster-whisper GPU support requires CUDA 11.8+ and cuDNN.
+# Install CUDA toolkit from: https://developer.nvidia.com/cuda-downloads
+# Then install the CUDA-enabled build of CTranslate2 (faster-whisper handles this).
+
+# Wake word detection
+openwakeword
+
+# Speech-to-text (GPU-accelerated via CUDA on RTX 3060)
+faster-whisper
+
+# Local LLM client (talks to Ollama server)
+ollama
+
+# Audio capture
+sounddevice
+numpy
+
+# Config file parsing
+PyYAML
+
+# Voice activity detection (silence detection after wake word)
+# Using webrtcvad-wheels for Windows compatibility
+webrtcvad-wheels
+
+# Optional: Text-to-speech for August to speak back
+# Uncomment if you want August to reply with a voice
+# pyttsx3
