@@ -121,8 +121,38 @@ class Brain:
                 logger.error("Failed to list Ollama models: %s", e)
                 return False
 
+    def _fetch_tumenews(self) -> str:
+        """Fetch custom news headlines from news.tumeden.dev."""
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            res = requests.get("https://news.tumeden.dev", headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}, timeout=5)
+            if res.status_code == 200:
+                soup = BeautifulSoup(res.text, 'html.parser')
+                text_blocks = []
+                for tag in soup.find_all(['h1', 'h2', 'h3', 'a', 'p']):
+                    txt = tag.get_text().strip()
+                    if len(txt) > 20 and not any(bad in txt.lower() for bad in ("404", "could not be found", "sign-in", "login", "cookie", "description", "aggregation without", "scroll to top")):
+                        text_blocks.append(txt)
+                
+                unique_blocks = list(dict.fromkeys(text_blocks))
+                if len(unique_blocks) >= 3:
+                    formatted = [f"Headline {idx+1}: {b}" for idx, b in enumerate(unique_blocks[:6])]
+                    return "\n".join(formatted)
+        except Exception as e:
+            logger.warning("Failed to fetch TumeNews: %s", e)
+        return ""
+
     def _search_web(self, query: str) -> str:
-        """Perform a quick web search using DuckDuckGo."""
+        """Perform a web search. Queries news.tumeden.dev for news requests, otherwise defaults to DuckDuckGo/Google."""
+        q_lower = query.lower()
+        if "news" in q_lower and "local" not in q_lower:
+            logger.info("Routing news query to news.tumeden.dev...")
+            tume_news = self._fetch_tumenews()
+            if tume_news:
+                return f"[Source: TumeNews (https://news.tumeden.dev)]\n{tume_news}"
+            logger.info("TumeNews was empty or failed. Falling back to general Google search...")
+
         try:
             from ddgs import DDGS
             with DDGS() as ddgs:

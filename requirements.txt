@@ -28,3 +28,7 @@ webrtcvad-wheels
 # Optional: Text-to-speech for August to speak back
 # Uncomment if you want August to reply with a voice
 # pyttsx3
+
+# Real-time web search and global hotkeys
+ddgs
+keyboard
