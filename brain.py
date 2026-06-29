@@ -124,7 +124,7 @@ class Brain:
     def _search_web(self, query: str) -> str:
         """Perform a quick web search using DuckDuckGo."""
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, max_results=3))
                 if results:
@@ -170,7 +170,11 @@ class Brain:
                 break
 
         # Also search for explicit news/weather queries
-        if not search_query and online and any(kw in t for kw in ("weather today", "news today", "current price of", "who won", "what is the score of")):
+        if not search_query and online and (
+            ("weather" in t) or 
+            ("news" in t) or 
+            any(kw in t for kw in ("current price of", "who won", "what is the score of"))
+        ):
             search_query = user_message
 
         search_context = ""
