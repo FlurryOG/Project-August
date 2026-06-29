@@ -169,10 +169,35 @@ class SpotifyController:
         
         is_playlist = "playlist" in query.lower()
         
-        # Clean up queries
-        search_query = query.lower()
-        search_query = re.sub(r"\bon spotify\b", "", search_query).strip()
-        search_query = re.sub(r"\bplay\s+", "", search_query).strip()
+        # Clean up queries using advanced voice-transcription cleaning rules
+        q = query.lower().strip()
+        
+        # Remove punctuation first
+        q = q.replace(".", "").replace(",", "").replace("?", "").replace("!", "").strip()
+        
+        # Join single spelled-out letters (e.g. "s t a n" -> "stan", "m & m" -> "m&m")
+        q = re.sub(r"\b([a-z])\s+(?=[a-z]\b)", r"\1", q)
+        q = re.sub(r"\b([a-z])\s*&\s*([a-z])\b", r"\1&\2", q)
+        
+        # Loop to strip all leading preambles, fillers, and commands
+        fillers = (
+            r"^(uh|um|ok|okay|so|like|well|hey\s+august|august|please|can\s+you|"
+            r"tell\s+me|play|start|listen\s+to|dan|put|search|find|get)\b[\s,]*"
+        )
+        while True:
+            new_q = re.sub(fillers, "", q).strip()
+            if new_q == q:
+                break
+            q = new_q
+        
+        # Strip trailing fillers and destination tags
+        q = re.sub(r"\b(on|with|to)?\s*spotify\b", "", q).strip()
+        q = re.sub(r"\b(for\s+me|please|now)\b", "", q).strip()
+        
+        # Map common transcription mishearings
+        q = re.sub(r"\bbye\b", "by", q)
+        
+        search_query = q
         
         if is_playlist:
             search_query = re.sub(r"\b(my\s+)?playlist\b", "", search_query).strip()

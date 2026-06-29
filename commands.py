@@ -127,6 +127,11 @@ class CommandDispatcher:
                         response_text=f"I found the command '{name}' but I don't know how to run it.",
                     )
 
+        # ── Dynamic App Launching fallback (if no static commands match) ─────────
+        dynamic_app_result = self._try_dynamic_app_launch(normalised)
+        if dynamic_app_result is not None:
+            return dynamic_app_result
+
         return CommandResult(matched=False)
 
     def _try_math(self, text: str) -> "CommandResult | None":
@@ -230,15 +235,26 @@ class CommandDispatcher:
 
         t = text.lower().strip()
 
+        # Clean off common filler words and wake word prefixes first to get the core action
+        t_clean = re.sub(r"^(uh|um|ok|okay|so|like|well)\b[\s,]*", "", t).strip()
+        t_clean = re.sub(r"^(hey\s+august|august|please|can\s+you|tell\s+me)\b[\s,]*", "", t_clean).strip()
+        t_clean = re.sub(r"^(uh|um|ok|okay|so|like|well)\b[\s,]*", "", t_clean).strip()
+        t_clean = re.sub(r"^(hey\s+august|august|please|can\s+you|tell\s+me)\b[\s,]*", "", t_clean).strip()
+
+        # Pause / Stop (checked on the cleaned text exactly, so 'play stop' doesn't match!)
+        if t_clean in ("pause", "stop", "pause music", "stop music", "pause spotify", "stop spotify", "stop the music", "pause the music"):
+            msg = self.spotify.pause()
+            return CommandResult(matched=True, command_name="Spotify Pause", response_text=msg)
+
+        # Play / Resume (exact short triggers)
+        if t_clean in ("play", "resume", "play music", "resume music", "play spotify", "resume spotify", "resume"):
+            msg = self.spotify.play()
+            return CommandResult(matched=True, command_name="Spotify Play", response_text=msg)
+
         # Direct Mention of Spotify (guarantees routing to Spotify)
-        if "spotify" in t:
+        if "spotify" in t_clean:
             # Extract query by removing "on spotify", "with spotify", "spotify"
-            query_clean = re.sub(r"\b(on|with|to)?\s*spotify\b", "", t).strip()
-            # Clean off preambles and fillers
-            query_clean = re.sub(r"^(uh|um|ok|okay|so|like|well)\b[\s,]*", "", query_clean).strip()
-            query_clean = re.sub(r"^(hey\s+august|august|please|can\s+you|tell\s+me)\b[\s,]*", "", query_clean).strip()
-            query_clean = re.sub(r"^(uh|um|ok|okay|so|like|well)\b[\s,]*", "", query_clean).strip()
-            query_clean = re.sub(r"^(hey\s+august|august|please|can\s+you|tell\s+me)\b[\s,]*", "", query_clean).strip()
+            query_clean = re.sub(r"\b(on|with|to)?\s*spotify\b", "", t_clean).strip()
             # Clean off leading standard verbs
             query_clean = re.sub(r"^(play|start|listen\s+to)\b[\s,]*", "", query_clean).strip()
             
@@ -246,11 +262,8 @@ class CommandDispatcher:
                 msg = self.spotify.search_and_play(query_clean)
                 return CommandResult(matched=True, command_name="Spotify Direct Mention", response_text=msg)
 
-        # Clean off common filler words and wake word prefixes with optional commas/whitespace
-        t = re.sub(r"^(uh|um|ok|okay|so|like|well)\b[\s,]*", "", t).strip()
-        t = re.sub(r"^(hey\s+august|august|please|can\s+you|tell\s+me)\b[\s,]*", "", t).strip()
-        t = re.sub(r"^(uh|um|ok|okay|so|like|well)\b[\s,]*", "", t).strip()
-        t = re.sub(r"^(hey\s+august|august|please|can\s+you|tell\s+me)\b[\s,]*", "", t).strip()
+        # Reassign t to the cleaned text for downstream commands
+        t = t_clean
 
         # Easter Egg check: If user asks for August's favorite/preferred song (and NOT a literal song name query)
         if any(kw in t for kw in ("your favorite song", "your preferred song", "favorite song of yours", "favorite song in your opinion")):
@@ -270,16 +283,6 @@ class CommandDispatcher:
         if any(kw in t for kw in ("previous song", "previous track", "play previous song", "play previous track", "go back")):
             msg = self.spotify.previous()
             return CommandResult(matched=True, command_name="Spotify Previous", response_text=msg)
-
-        # Pause / Stop
-        if any(kw in t for kw in ("pause music", "pause spotify", "stop music", "stop spotify", "pause")):
-            msg = self.spotify.pause()
-            return CommandResult(matched=True, command_name="Spotify Pause", response_text=msg)
-
-        # Play / Resume (exact short triggers)
-        if t in ("play", "resume", "play music", "resume music", "play spotify", "resume spotify", "resume"):
-            msg = self.spotify.play()
-            return CommandResult(matched=True, command_name="Spotify Play", response_text=msg)
 
         # Catch ANY sentence containing play, start, or listen to and treat the rest as a search query
         play_match = re.search(r"\b(play|start|listen\s+to)\s+(.+)$", t)
@@ -477,3 +480,68 @@ class CommandDispatcher:
             print(f"  {_CYAN}⚡ {message}{_RESET}")
         else:
             print(f"  >> {message}")
+
+    def _try_dynamic_app_launch(self, text: str) -> Optional[CommandResult]:
+        """Search Desktop and Start Menu for a shortcut/app matching the launch request."""
+        t = text.strip()
+        
+        # Detect app launch prefixes
+        app_name = None
+        for prefix in ("open ", "launch ", "run ", "start "):
+            if t.startswith(prefix):
+                app_name = t[len(prefix):].strip()
+                break
+                
+        if not app_name:
+            return None
+            
+        # Clean off trailing fillers
+        app_name = re.sub(r"\b(for me|please|now)\b", "", app_name).strip()
+        app_name = app_name.rstrip("?.!").strip()
+        
+        if not app_name:
+            return None
+            
+        # Define search directories on Windows
+        search_dirs = [
+            Path(os.environ.get("ProgramData", "C:\\ProgramData")) / "Microsoft\\Windows\\Start Menu\\Programs",
+            Path(os.environ.get("APPDATA", "")) / "Microsoft\\Windows\\Start Menu\\Programs",
+            Path(os.environ.get("USERPROFILE", "")) / "Desktop",
+            Path("C:\\Users\\Public\\Desktop")
+        ]
+        
+        matches = []
+        for directory in search_dirs:
+            if not directory.exists():
+                continue
+            for root, dirs, files in os.walk(directory):
+                for f in files:
+                    if f.lower().endswith((".lnk", ".exe")):
+                        name_without_ext = Path(f).stem.lower()
+                        # Match app name
+                        if app_name == name_without_ext or app_name in name_without_ext:
+                            full_path = Path(root) / f
+                            matches.append((Path(f).stem, full_path))
+                            
+        # De-duplicate and sort matches (exact match first, then shorter names first)
+        matches = sorted(list(set(matches)), key=lambda x: (x[0].lower() != app_name, len(x[0])))
+        
+        if matches:
+            matched_name, matched_path = matches[0]
+            
+            def run_action():
+                self._print_action(f"Launching app: {matched_name} ({matched_path})")
+                try:
+                    os.startfile(str(matched_path))
+                    logger.info("Launched app successfully: %s -> %s", matched_name, matched_path)
+                except Exception as e:
+                    logger.error("Failed to launch app '%s': %s", matched_path, e)
+                    
+            return CommandResult(
+                matched=True,
+                command_name=f"Dynamic Launch: {matched_name}",
+                response_text=f"Opening {matched_name}.",
+                action_callback=run_action
+            )
+            
+        return None
